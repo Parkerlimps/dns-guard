@@ -1,0 +1,32 @@
+MIT License
+
+Copyright (c) 2026 parkerli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+使用须知（中文摘要，以英文条款为准）
+
+1. 本工具仅用于检测你自己设备的 DNS 配置与解析一致性，以及按你的意愿
+   配置加密 DNS（DoH）。它不提供任何流量代理、翻墙或绕过网络管理的能力。
+2. 修改 DNS 会影响整机联网。程序在执行写操作前会备份当前配置并提供回滚，
+   但你仍需自行确认风险，作者不对因此造成的网络异常负责。
+3. 程序不收集、不上传任何数据；所有检测都在本机完成。
+4. 请勿将本工具用于未经授权的设备或网络。

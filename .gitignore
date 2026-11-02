@@ -1,0 +1,26 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 构建产物（PyInstaller / PyArmor）----
+build/
+dist/
+*.spec.bak
+payload.bin
+pyarmor.bug.log
+*.pkg
+*.pyz
+
+# ---- 运行时生成 ----
+backup/
+reports/
+*.log
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
