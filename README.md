@@ -1,7 +1,8 @@
 # DNS Guard · 需求与搭建说明
 
 > 一个给"不会用 Wireshark 的人"用的 DNS 劫持体检工具
-> 版本 v0.4.5 · 桌面客户端 · by parkerli · Windows 优先
+> 版本 v0.4.8 · 桌面客户端 · by parkerli · Windows 优先
+> MIT License · 源码完整开放
 
 ---
 
@@ -261,9 +262,7 @@ python -V
 dns-guard/
 ├── dnsguard.py          检测引擎 + CLI（单文件，零依赖）
 ├── dnsguard_app.py      可视化界面（本地 Web UI，只监听 127.0.0.1）
-├── build.py             打包脚本（--protect 走加密模式）
-├── pack.py              生成加密载荷 payload.bin
-├── boot.py              加密版启动器（内存解密执行）
+├── build.py             打包脚本（PyInstaller 单文件）
 ├── make_icon.py         生成图标（仅构建期需要 Pillow）
 ├── assets/              icon.ico / icon.png
 ├── reports/             自动生成 report_<时间>.json / .html
@@ -332,18 +331,20 @@ python dnsguard_app.py --no-browser --port 8899   # 只起服务
 
 ```bash
 pip install pyinstaller pywebview pillow
-python build.py             # 普通打包，约 16 MB
-python build.py --protect   # 加密打包，源码不在 exe 里
+python build.py             # 打包，约 16 MB
 # 产物：dist/DNSGuard.exe（双击即用）
 ```
 
-**加密打包做了什么**：`pack.py` 把 `dnsguard.py` / `dnsguard_app.py` 压缩后用 RC4 加密成
-`payload.bin`，`boot.py` 在内存里解密再执行。exe 的 PyInstaller 归档里只有 `boot` 和
-`payload.bin`，没有任何 `.pyc` 可供 `pyinstxtractor` + 反编译器还原。
+`build.py` 内部就是一条 PyInstaller 命令：`--onefile --windowed`，带图标和版本信息，
+`--collect-all` 把 pywebview / pythonnet 的运行时一起收进来，所以 exe 不依赖目标机器的 Python。
 
-**但要说清楚**：Python 程序做不到真正防逆向。运行时要解密，内存就能被 dump。
-这一层挡的是"随手拿工具一键反编译"，挡不住专门分析的人。真要更强，只能用
-Nuitka 编译成机器码（需要 C 编译器，构建慢且对 pywebview 支持一般）。
+源码完整包含在仓库里，没有做任何加密或混淆。这是有意的取舍：DNS Guard 要读系统 DNS 配置、
+改 DoH 注册表、需要管理员权限，用户凭什么相信一个看不见内容的 exe 不会把查询记录传出去？
+代码可读是这类工具最基本的信任来源。
+
+> 早期版本试过 RC4 加密载荷 + 内存解密（`pack.py` / `boot.py`），v0.4.8 已移除。
+> 那层保护挡不住真正想逆向的人——密钥和密文躺在同一个 exe 里——却会让杀软启发式
+> 更容易把「无签名 + 运行时解密 + 单文件」判定为可疑，反而抬高了普通用户的使用门槛。
 
 ### 5.7 定期体检（可选）
 
@@ -432,3 +433,27 @@ www.baidu.com       110.242.69.21,...       110.242.70.57 110.242.69.21 normal
 | v0.4 | 路由器 DNS 检测（UPnP / 常见管理页指纹） |
 | v0.5 | 托盘常驻 + 解析异常实时告警 |
 | v1.0 | 图形界面 + 一键生成可分享的诊断报告 |
+
+---
+
+## 11. 开源协议
+
+[MIT](LICENSE) © 2026 parkerli
+
+可以自由使用、修改、分发、商用，保留版权声明即可。没有附加条款，也不要求在 UI 里署名。
+
+**为什么是 MIT**：这是工具，不是框架，约束越少越容易被拿去用。你 fork 之后做了改进，
+欢迎提 PR，但不必——直接改自己那份也完全合法。
+
+**关于信任**：DNS Guard 要读系统 DNS 配置、写 DoH 注册表、部分操作需要管理员权限。
+这类工具闭源就没有可信度可言，所以源码完整放在仓库里，打包脚本也一并公开。
+你可以自己跑 `python build.py` 出一份 exe，和 Release 里的产物对比。
+
+## 12. 反馈
+
+提 Issue 时请附上：
+
+- `python dnsguard.py check --json` 的输出（**先自己过一眼**，里面可能包含你访问过的域名）
+- Windows 版本、是否开着代理或 VPN
+- 期望看到什么、实际看到什么
+

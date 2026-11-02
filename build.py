@@ -3,8 +3,7 @@
 """
 build.py — 把 DNS Guard 打包成单文件桌面客户端
 
-    python build.py             # 普通打包
-    python build.py --protect   # 加密打包：源码压成加密载荷，运行时内存解密
+    python build.py
 
 产物：dist/DNSGuard.exe（双击即开，独立窗口，不经过浏览器标签页）
 需要：pip install pyinstaller pywebview pillow
@@ -20,11 +19,11 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 BUILD = os.path.join(BASE, "build")
 DIST = os.path.join(BASE, "dist")
 ICON = os.path.join(BASE, "assets", "icon.ico")
-VERSION = "0.4.7"
+VERSION = "0.4.8"
 
 VERSION_INFO = """VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(0, 4, 7, 0), prodvers=(0, 4, 7, 0),
+    filevers=(0, 4, 8, 0), prodvers=(0, 4, 8, 0),
     mask=0x3f, flags=0x0, OS=0x40004, fileType=0x1, subtype=0x0, date=(0, 0)
   ),
   kids=[
@@ -47,8 +46,6 @@ VERSION_INFO = """VSVersionInfo(
 
 
 def main() -> int:
-    protect = "--protect" in sys.argv[1:]
-
     if not os.path.exists(ICON):
         print("· 生成图标…")
         subprocess.check_call([sys.executable, os.path.join(BASE, "make_icon.py")])
@@ -59,12 +56,6 @@ def main() -> int:
         fh.write(VERSION_INFO)
 
     entry = os.path.join(BASE, "dnsguard_app.py")
-    extra: list[str] = []
-    if protect:
-        print("· 生成加密载荷…")
-        subprocess.check_call([sys.executable, os.path.join(BASE, "pack.py")])
-        entry = os.path.join(BASE, "boot.py")
-        extra = ["--add-data", os.path.join(BUILD, "payload.bin") + os.pathsep + "."]
 
     # PyInstaller 覆盖旧产物时会先删文件；某些环境的删除钩子会拦下来，先自己挪走
     exe = os.path.join(DIST, "DNSGuard.exe")
@@ -88,16 +79,13 @@ def main() -> int:
         "--collect-all", "clr_loader",
         "--hidden-import", "webview.platforms.winforms",
     ]
-    if not protect:                     # 加密模式下绝不能让 PyInstaller 把源码打成 .pyc 塞进来
-        cmd += ["--hidden-import", "dnsguard", "--hidden-import", "dnsguard_app"]
-    cmd += extra + [entry]
+    cmd += ["--hidden-import", "dnsguard", "--hidden-import", "dnsguard_app", entry]
 
     print("· 开始打包…")
     subprocess.check_call(cmd, cwd=BASE)
 
     if os.path.exists(exe):
-        print(f"\n完成：{exe}  ({os.path.getsize(exe) / 1048576:.1f} MB)"
-              f"{'  [已加密]' if protect else ''}")
+        print(f"\n完成：{exe}  ({os.path.getsize(exe) / 1048576:.1f} MB)")
         return 0
     print("打包失败，请检查上方日志")
     return 1

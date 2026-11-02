@@ -6,14 +6,9 @@ __pycache__/
 venv/
 env/
 
-# ---- 构建产物（PyInstaller / PyArmor）----
+# ---- 打包产物（PyInstaller）----
 build/
 dist/
-*.spec.bak
-payload.bin
-pyarmor.bug.log
-*.pkg
-*.pyz
 
 # ---- 运行时生成 ----
 backup/
