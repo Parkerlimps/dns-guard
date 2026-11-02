@@ -263,6 +263,7 @@ dns-guard/
 ├── dnsguard.py          检测引擎 + CLI（单文件，零依赖）
 ├── dnsguard_app.py      可视化界面（本地 Web UI，只监听 127.0.0.1）
 ├── build.py             打包脚本（PyInstaller 单文件）
+├── dnsguard_i18n.py     中英对照表（引擎输出的英文在边界替换）
 ├── make_icon.py         生成图标（仅构建期需要 Pillow）
 ├── assets/              icon.ico / icon.png
 ├── reports/             自动生成 report_<时间>.json / .html
@@ -327,7 +328,37 @@ python dnsguard_app.py --no-browser --port 8899   # 只起服务
 界面里能直接看到：隐私状态与"谁能看到你访问什么"的链路图、解析一致性表格、
 解析器测速与 DNSSEC 状态、一键开启/回滚 DoH、导出 HTML/JSON、复制诊断摘要。
 
-### 5.6 打包成 exe
+### 5.6 语言切换（中文 / English）
+
+界面右上角有 `EN` 按钮，点击切到英文；英文界面下按钮显示 `中文`。默认中文，
+选择记在 `localStorage`，也可以直接用 URL 参数进入某一语言：
+
+```bash
+http://127.0.0.1:8765/?lang=en    # 英文
+http://127.0.0.1:8765/?lang=zh    # 中文
+```
+
+**实现方式**分两层，都在输出边界做替换，检测逻辑里没有一句 `if lang == ...`：
+
+| 层 | 覆盖范围 | 位置 |
+|---|---|---|
+| 引擎层 | 结论、摘要、证据、建议、通道、判定原因 | `dnsguard_i18n.py` |
+| 界面层 | 卡片标题、按钮、表头、状态标签 | `dnsguard_app.py` 的 `EN` 字典 |
+
+中文是唯一源语言。`dnsguard_i18n.py` 里 `EN` 处理固定文案，`PATS` 处理带变量的
+句子——中文模板里的 `{}` 在加载时自动转成正则捕获组，所以不需要在 400 多个
+f-string 上逐个打补丁。匹配不上的原样返回中文，宁可漏翻不会乱翻。
+
+想检查覆盖率：
+
+```bash
+python dnsguard_i18n.py payload.json
+```
+
+**已知不覆盖**：体检日志面板（`<details>` 里那段）是 CLI 的原始输出，和
+`python dnsguard.py check` 共用，仍是中文。网卡名、DNS 服务商名保持系统原名。
+
+### 5.7 打包成 exe
 
 ```bash
 pip install pyinstaller pywebview pillow
@@ -346,7 +377,7 @@ python build.py             # 打包，约 16 MB
 > 那层保护挡不住真正想逆向的人——密钥和密文躺在同一个 exe 里——却会让杀软启发式
 > 更容易把「无签名 + 运行时解密 + 单文件」判定为可疑，反而抬高了普通用户的使用门槛。
 
-### 5.7 定期体检（可选）
+### 5.8 定期体检（可选）
 
 任务计划程序 → 创建基本任务 → 每天 09:00 → 程序填 `python.exe`，
 参数填 `dnsguard.py check --json`，起始位置填 `dns-guard` 目录。

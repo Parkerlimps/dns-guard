@@ -27,8 +27,17 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 import dnsguard as dg
+import dnsguard_i18n as i18n
 
 APP_NAME = "DNS Guard"
+
+
+def _req_lang(path: str) -> str:
+    """从查询串里取 lang；默认中文"""
+    for part in urlparse(path).query.split("&"):
+        if part.startswith("lang="):
+            return part[5:] or "zh"
+    return "zh"
 
 
 # ---------------------------------------------------------------- 任务状态
@@ -261,6 +270,9 @@ class Handler(BaseHTTPRequestHandler):
             pass
 
     def _json(self, data: dict, code: int = 200) -> None:
+        # 语言在输出边界统一处理：引擎只产中文，这里按请求整棵翻成英文
+        if _req_lang(self.path) == "en":
+            data = i18n.tr_deep(data)
         self._send(code, json.dumps(data, ensure_ascii=False, default=str).encode("utf-8"),
                    "application/json; charset=utf-8")
 
@@ -758,6 +770,8 @@ footer .spacer{flex:1}
       <div class="hsub">DNS 劫持体检 · 明文/加密自查</div>
     </div>
     <div class="spacer"></div>
+    <button class="btn sm" id="langBtn" data-notrans onclick="toggleLang()"
+            title="切换语言 / Switch language" style="height:26px;padding:0 10px;font-size:12px">EN</button>
     <span class="chip" id="permChip">检测权限…</span>
     <span class="chip mono">v__VERSION__</span>
     <button class="btn primary" id="scanBtn" onclick="startScan()">开始体检</button>
@@ -930,13 +944,300 @@ function icon(name, cls){
     stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.device}</svg>`;
 }
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+/* ---------- 语言切换 ----------
+   不侵入渲染逻辑：所有中文原文当 key，渲染完成后扫描文本节点替换。
+   中文是唯一数据源，英文只是显示层映射，漏翻的条目会自动回落到中文。 */
+const EN = {
+  /* 头部 */
+  'DNS 劫持体检 · 明文/加密自查':'DNS hijack check · plaintext / encrypted audit',
+  '检测权限…':'Checking privileges…',
+  '开始体检':'Run check',
+  '重新体检':'Re-run',
+  '体检中…':'Checking…',
+  '管理员权限':'Administrator',
+  '普通权限':'Standard user',
+  '预览模式':'Preview mode',
+
+  /* 隐私主卡 */
+  'DNS 隐私状态':'DNS privacy status',
+  '正在读取系统 DNS 配置…':'Reading system DNS configuration…',
+  '读取网卡、注册表与浏览器设置，判断查询是否以明文发出。':'Reads adapters, registry and browser settings to determine whether queries leave in plaintext.',
+  '约 15 秒 · 只读，不改任何配置':'About 15s · read-only, changes nothing',
+  '隐私评分':'Privacy score',
+  '等待体检':'Awaiting check',
+  '待行为验证':'Pending behavioural check',
+  '链路私密':'Link is private',
+  '基本可控':'Mostly under control',
+  '部分暴露':'Partially exposed',
+  '高度暴露':'Highly exposed',
+  '暴露等级':'Exposure',
+  '配置层初判 · 行为层尚未验证，点「开始体检」跑一次完整检测':'Config-level estimate · behaviour not yet verified. Click “Run check” for a full test.',
+  '隐私评分构成：':'Privacy score breakdown: ',
+
+  /* 四个指标 */
+  '抗劫持评分':'Anti-hijack score',
+  '越高越安全':'Higher is safer',
+  '异常域名':'Anomalous domains',
+  '共 8 个测试域名':'8 test domains',
+  '加密通道':'Encrypted channel',
+  'DoH 是否生效':'Whether DoH is active',
+  '代理接管':'Proxy interception',
+  'fake-ip / 本地端口':'fake-ip / local ports',
+  '个端口':' ports',
+  '未发现':'None found',
+  '无代理监听':'No proxy listening',
+
+  /* 卡片标题 */
+  '解析通道':'Resolution paths',
+  '谁能看到你在访问什么':'Who can see what you visit',
+  '明文 DNS 会泄露什么':'What plaintext DNS leaks',
+  '判定依据':'Evidence',
+  '解析器体检':'Resolver check',
+  '解析一致性交叉验证':'Cross-validation of resolution',
+  '建议':'Recommendations',
+  '一键开启加密 DNS（DoH）':'Enable encrypted DNS (DoH)',
+  '等待体检…':'Awaiting check…',
+  '无数据':'No data',
+  '没有发现明文泄露点。':'No plaintext leak found.',
+
+  /* 通道 / 观察者 */
+  '加密':'Encrypted',
+  '明文':'Plaintext',
+  '未知':'Unknown',
+  '可见范围：':'Visible to: ',
+  '可见范围':'Visible to',
+  '能看到：':'Can see: ',
+  '项':' items',
+  '严重':'Critical',
+  '高':'High',
+  '中':'Medium',
+  '低':'Low',
+
+  /* 链路图 */
+  '你的设备':'Your device',
+  '浏览器 / 应用':'Browser / apps',
+  '本地代理':'Local proxy',
+  '代理上游':'Proxy upstream',
+  '加密与否未知':'Encryption unknown',
+  '取决于配置':'Depends on config',
+  '解析器':'Resolver',
+  '路由器':'Router',
+  '运营商':'ISP',
+  '链路中间人':'On-path observer',
+  'DNS 解析器':'DNS resolver',
+  '不出网卡':'Never leaves NIC',
+  '看不到域名':'Cannot see domains',
+  'TLS 解密':'TLS-terminated',
+  '待验证':'Unverified',
+  'TLS 未确认':'TLS unconfirmed',
+  '可见':'Visible',
+  '明文 53':'Plaintext 53',
+  '本机':'On-host',
+  '代理':'Proxy',
+  '出网卡':'Off-NIC',
+  'TLS 443':'TLS 443',
+  'UDP 53':'UDP 53',
+  '网关':'gateway',
+
+  /* 判定 */
+  '正常':'Normal',
+  '加密生效':'Encrypted',
+  '代理 fake-ip':'Proxy fake-ip',
+  '代理转发':'Proxy forwarding',
+  'CDN 差异':'CDN variance',
+  '明文与基准不同':'Plaintext differs from baseline',
+  '非公网地址':'Non-public address',
+  'NXDOMAIN 劫持':'NXDOMAIN hijack',
+  '明文被篡改':'Plaintext tampered',
+  '选择性拦截':'Selective blocking',
+  '解析失败':'Resolution failed',
+  '与基准不同':'Differs from baseline',
+  '无法判定':'Indeterminate',
+  '明确拦截':'Explicitly blocked',
+  '与加密基准一致':'Matches encrypted baseline',
+
+  /* DoH 状态 */
+  '已生效':'Active',
+  '未证实':'Unproven',
+  '行为层已验证':'Verified behaviourally',
+  '配置已开，未证实':'Configured, unproven',
+  '明文不可达，只能走加密':'Plaintext unreachable, encrypted only',
+  '系统未配置但已加密':'Encrypted without config',
+  '系统级 DoH 不生效':'System DoH not in effect',
+  '仍是明文 UDP/53':'Still plaintext UDP/53',
+
+  /* 解析器 */
+  'DNSSEC 验证中':'DNSSEC validating',
+  '不验证':'Not validating',
+  '可发现伪造':'Forgeries detectable',
+  '伪造无法发现':'Forgeries undetectable',
+  'DNSSEC 已验证':'DNSSEC verified',
+  'DNSSEC 未验证':'DNSSEC unverified',
+  '抖动':'jitter',
+  '丢':'loss',
+  '证书异常':'Bad certificate',
+  '无响应：':'No response: ',
+  '当前解析经代理接管，下面的延迟只代表本机到代理，不代表解析器真实速度':'Resolution is currently proxied. Latency below reflects host-to-proxy only, not resolver performance.',
+  'DoH 走 443（HTTPS），DoT 走 853（TLS 专口）。 853 常被网络直接拦截，所以显示为空不一定是不支持。腾讯的 DoT 在 dot.pub（1.12.12.12），不在 119.29.29.29 上。':'DoH runs on 443 (HTTPS), DoT on 853 (dedicated TLS port). 853 is often blocked outright, so a blank result does not necessarily mean unsupported. Tencent DoT lives at dot.pub (1.12.12.12), not 119.29.29.29.',
+
+  /* 表格 */
+  '域名':'Domain',
+  '系统解析':'System',
+  '本地 DNS':'Local DNS',
+  '公共 DNS':'Public DNS',
+  '判定':'Verdict',
+  '超时':'timeout',
+  '同本地':'same as local',
+  '个域名':' domains',
+
+  /* DoH 表单 */
+  '服务商':'Provider',
+  'IPv4 DNS（必须与地址配套）':'IPv4 DNS (must match the URL)',
+  'IPv6 DNS（留空则不配置 IPv6，IPv6 仍为明文）':'IPv6 DNS (leave blank to skip IPv6; IPv6 stays plaintext)',
+  'DoH 地址':'DoH URL',
+  '先看执行计划':'Preview plan',
+  '开启并验证':'Enable and verify',
+  '回滚到开启前':'Roll back',
+  '会修改系统 DNS（IPv4 与 IPv6 一起）并重启 DNS 客户端服务，影响整机联网。执行前自动备份，可随时一键回滚。 Windows 的 DoH 按 IP 注册模板，':'This modifies system DNS (IPv4 and IPv6) and restarts the DNS client service, affecting connectivity system-wide. A backup is taken first and can be rolled back at any time. Windows registers DoH templates by IP, so ',
+  'URL 与 IP 不匹配会静默回落到明文':'a mismatched URL and IP silently fall back to plaintext',
+  '；IPv6 也要填地址才会一起加密。':'; IPv6 is only encrypted if an address is supplied.',
+
+  /* 底部 */
+  '▸ 体检日志':'▸ Check log',
+  '复制诊断摘要':'Copy summary',
+  '导出 HTML 报告':'Export HTML',
+  '导出 JSON':'Export JSON',
+  '打开报告目录':'Open report folder',
+  '以管理员身份重启':'Restart as admin',
+  '退出':'Quit',
+
+  /* 提示语 */
+  '先跑一次体检':'Run a check first',
+  '诊断摘要已复制，可直接贴给客服/运维':'Summary copied — paste it to support or ops',
+  '诊断摘要已复制':'Summary copied',
+  '已导出：':'Exported: ',
+  '导出失败':'Export failed',
+  '打开失败':'Failed to open',
+  '提权失败':'Elevation failed',
+  '无法开始体检':'Could not start the check',
+  '请填写 DoH 地址和 IP':'Enter both a DoH URL and an IP',
+  '操作失败':'Operation failed',
+  '任务失败':'Task failed',
+  'DoH 操作完成，正在重新体检…':'DoH change applied, re-checking…',
+  'DoH 操作结束（返回码 ':'DoH finished (exit code ',
+  '），请看日志':' ) — see the log',
+  '任务超时，可能仍在后台执行，可点「重新体检」查看':'Task timed out; it may still be running. Click “Re-run” to check.',
+  '上次体检结果 · ':'Last result · ',
+  '，点「重新体检」可刷新':' — click “Re-run” to refresh',
+  'DNS Guard 已退出，可以关闭这个页面了。':'DNS Guard has exited. You can close this page.',
+  '只读体检，写操作前自动备份':'Read-only audit · backups taken before any write',
+
+  /* 引擎生成的常用文案 */
+  '私密':'Private',
+  '低风险':'Low risk',
+  '需留意':'Needs attention',
+  '中风险':'Medium risk',
+  '高风险':'High risk',
+  '暴露等级 私密':'Exposure: Private',
+  '暴露等级 基本可控':'Exposure: Mostly controlled',
+  '暴露等级 部分暴露':'Exposure: Partially exposed',
+  '暴露等级 高度暴露':'Exposure: Highly exposed',
+  '系统解析（浏览器与所有应用默认走这条）':'System resolver (default for browsers and all apps)',
+  '由代理接管，加密与否取决于代理配置':'Intercepted by proxy; encryption depends on proxy config',
+  '域名（若代理上游仍是明文 UDP）':'Domains (if proxy upstream is still plaintext UDP)',
+  '本地代理软件':'Local proxy software',
+  '访问的域名':'Domains visited',
+  '连接目标':'Connection targets',
+  '查询时间':'Query times',
+  '你的内网 IP':'Your LAN IP',
+  'DNS 由本地代理接管：加不加密看代理配置':'DNS is intercepted by a local proxy; whether it is encrypted depends on the proxy config',
+  'DNS 是明文的：谁都能看到你访问的每个域名':'DNS is plaintext: anyone can see every domain you visit',
+  'DNS 已加密：链路上看不到你查了什么域名':'DNS is encrypted: the path cannot see which domains you resolve'
+};
+
+const _qLang = new URLSearchParams(location.search).get('lang');
+let LANG = (_qLang === 'en' || _qLang === 'zh') ? _qLang : (localStorage.getItem('dg_lang') || 'zh');
+const ZH_SRC = new WeakMap();
+
+function tr(s){
+  const m = s.match(/^(\s*)([\s\S]*?)(\s*)$/);
+  const core = m[2].replace(/\s+/g,' ');
+  const hit = EN[core];
+  if(hit != null) return m[1] + hit + m[3];
+  /* 分段回退只处理短标签串，长句一律不动，避免中英混杂 */
+  if(core.length > 30) return s;
+  let changed = false;
+  const out = core.split(/([、，。；：·])/).map(seg=>{
+    const h = EN[seg.trim()];
+    if(h != null){ changed = true; return h; }
+    return seg;
+  }).join('').replace(/、/g, ', ');
+  return changed ? m[1] + out + m[3] : s;
+}
+
+/* 渲染代码里拼接的标签用这个取词，中文态原样返回 */
+function t(k){ return LANG === 'en' ? (EN[k] || k) : k; }
+
+function translateNode(n){
+  const p = n.parentNode;
+  if(!p || p.nodeType !== 1) return;
+  if(/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName)) return;
+  if(p.closest('#log') || p.closest('[data-notrans]')) return;
+  if(!ZH_SRC.has(n)) ZH_SRC.set(n, n.nodeValue);
+  const src = ZH_SRC.get(n);
+  const out = LANG === 'en' ? tr(src) : src;
+  if(n.nodeValue !== out) n.nodeValue = out;
+}
+
+function walkText(root){
+  if(!root) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const buf = [];
+  while(w.nextNode()) buf.push(w.currentNode);
+  for(const n of buf) translateNode(n);
+}
+
+let MO = null;
+/* 只监听 childList：脚本更新文字都是整段替换，不会因为改写 nodeValue 触发回环 */
+MO = new MutationObserver(muts=>{
+  if(LANG !== 'en') return;
+  for(const m of muts){
+    for(const n of m.addedNodes){
+      if(n.nodeType === 3) translateNode(n);
+      else if(n.nodeType === 1) walkText(n);
+    }
+  }
+});
+function applyLang(){
+  if(MO) MO.disconnect();
+  walkText(document.body);
+  if(MO) MO.observe(document.body, {childList:true, subtree:true});
+}
+
+function bootLang(){
+  document.documentElement.lang = LANG === 'en' ? 'en' : 'zh-CN';
+  const b = document.getElementById('langBtn');
+  if(b) b.textContent = LANG === 'en' ? '中文' : 'EN';
+  applyLang();
+}
+
+/* 切换必须重新拉数据：分析文案由引擎生成，要让后端按新语言重新出 */
+function toggleLang(){
+  const l = LANG === 'en' ? 'zh' : 'en';
+  localStorage.setItem('dg_lang', l);
+  const u = new URL(location.href);
+  u.searchParams.set('lang', l);
+  location.replace(u.toString());
+}
+
 function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),2600);
 }
 
 async function api(path, body){
-  const res = await fetch(path, {
+  const url = path + (path.indexOf('?') >= 0 ? '&' : '?') + 'lang=' + LANG;
+  const res = await fetch(url, {
     method: body===undefined?'GET':'POST',
     headers:{'Content-Type':'application/json'},
     body: body===undefined?undefined:JSON.stringify(body)
@@ -957,7 +1258,7 @@ function renderPrivacy(pv){
   const lv = pv.level||'info';
   document.getElementById('heroState').innerHTML =
     `<span class="state ${stateClass(lv)}"><span class="dot"></span>${esc(pv.label||'')}</span>
-     <span class="chip" style="margin-left:8px">暴露等级 ${esc(pv.exposure_label||'-')}</span>
+     <span class="chip" style="margin-left:8px">${t('暴露等级')} ${esc(pv.exposure_label||'-')}</span>
      <span class="chip mono" style="margin-left:4px">${esc(pv.target||'-')}${pv.provider?' · '+esc(pv.provider):''}</span>`;
 
   const arc = document.getElementById('ringArc');
@@ -1078,7 +1379,9 @@ function renderStats(p){
 
   const px = document.getElementById('stProxy');
   const ports = p.proxy_ports||[];
-  px.textContent = ports.length ? ports.length+' 个端口' : '未发现';
+  px.textContent = ports.length
+    ? (LANG === 'en' ? ports.length + (ports.length > 1 ? ' ports' : ' port') : ports.length + ' 个端口')
+    : t('未发现');
   px.className = 'v ' + (ports.length?'c-warn':'c-ok');
   document.getElementById('stProxyD').textContent = ports.length ? ports.join(' / ') : '无代理监听';
 }
@@ -1094,7 +1397,7 @@ function renderChannels(pv){
       <div class="bullet ${tone}"></div>
       <div class="body">
         <div class="ttl">${esc(c.name)}<span class="tag ${tone}">${word}</span></div>
-        <div class="txt">${esc(c.state_text)} · 可见范围：${esc(c.sees)}</div>
+        <div class="txt">${esc(c.state_text)} · ${t('可见范围：')}${esc(c.sees)}</div>
         <div class="path">${esc(c.path)}</div>
       </div></div>`;
   }).join('');
@@ -1110,7 +1413,7 @@ function renderObservers(pv){
       <div class="bullet ${tone}"></div>
       <div class="body">
         <div class="ttl">${esc(o.name)}</div>
-        <div class="txt">能看到：${(o.can_see||[]).map(esc).join('、')}</div>
+        <div class="txt">${t('能看到：')}${(o.can_see||[]).map(esc).join(LANG==='en'?', ':'、')}</div>
         <div class="path">${esc(o.note)}</div>
       </div></div>`;
   }).join('');
@@ -1384,7 +1687,7 @@ async function boot(){
       document.getElementById('log').textContent = (j.log||[]).join('\n');
       renderAll();
       document.getElementById('heroSub').textContent =
-        '上次体检结果 · ' + (j.payload.time||'').replace('T',' ') + '，点「重新体检」可刷新';
+        t('上次体检结果 · ') + (j.payload.time||'').replace('T',' ') + t('，点「重新体检」可刷新');
       return;
     }
   }catch(e){}
@@ -1532,6 +1835,7 @@ async function quit(){
   document.body.innerHTML = '<div style="padding:80px;text-align:center;color:#6a7280;font-family:sans-serif">DNS Guard 已退出，可以关闭这个页面了。</div>';
 }
 
+bootLang();
 boot();
 </script>
 </body>
