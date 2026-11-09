@@ -1,7 +1,8 @@
-
 # DNS Guard
 
 > 给不会用 Wireshark 的人用的 DNS 劫持体检工具 —— 直接告诉你解析有没有被篡改、DoH 是不是真的生效。
+
+![DNS Guard 界面预览](assets/screenshot.png)
 
 Windows 优先 · 桌面客户端 / CLI · Python 3.9+ 零第三方依赖 · 源码完整开放 · [MIT](LICENSE)
 
@@ -16,6 +17,13 @@ Windows 优先 · 桌面客户端 / CLI · Python 3.9+ 零第三方依赖 · 源
 
 核心做法不是抓包，而是**三方对照**：系统解析 / 本地明文 DNS / 多个 DoH 加密基准逐域名比对，
 给出 0–100 分风险评分、逐条证据和建议。默认只读，任何写操作都要显式命令、自动备份、可一键回滚。
+
+<details>
+<summary>查看解析一致性交叉验证表格</summary>
+
+![解析一致性交叉验证](assets/screenshot-table.png)
+
+</details>
 
 ---
 
